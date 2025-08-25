@@ -8,6 +8,18 @@ import io
 import os
 from dotenv import load_dotenv
 
+# Añadir después de los imports existentes
+try:
+    from backend.gpt_service import GPTService
+    from backend.knowledge_base import KnowledgeBase  
+    from backend.data_processor import DataProcessor
+    print("✅ Módulos backend cargados correctamente")
+except ImportError as e:
+    print(f"❌ Error importando backend: {e}")
+    GPTService = None
+    KnowledgeBase = None
+    DataProcessor = None
+
 # Cargar variables de entorno
 load_dotenv()
 
@@ -204,8 +216,11 @@ def show_sidebar():
         "⚙️ Configuración"
     ]
     
-    selected_page = st.selectbox("Navegación:", pages, 
-                                index=pages.index(st.session_state.current_page))
+    # Usar get() para evitar KeyError
+    current_page = st.session_state.get('current_page', '📊 Dashboard')
+    default_index = pages.index(current_page) if current_page in pages else 0
+    
+    selected_page = st.selectbox("Navegación:", pages, index=default_index)
     st.session_state.current_page = selected_page
     
     st.markdown("---")
@@ -679,6 +694,23 @@ def create_evaluation(patient_id, patient, systolic_bp, diastolic_bp, heart_rate
 
 def analyze_evaluation_complete(evaluation, patient):
     """Análisis completo de la evaluación con alertas y recomendaciones"""
+    if GPTService:
+        try:
+            gpt_service = GPTService()
+            ai_analysis = gpt_service.analyze_patient_condition(patient, evaluation)
+            # Si hay análisis de IA, devolverlo formateado
+            if ai_analysis and not ai_analysis.startswith("Error"):
+                return {
+                    'alerts': [],
+                    'recommendations': [],
+                    'severity_score': 5,
+                    'severity_level': "IA",
+                    'requires_immediate_attention': False,
+                    'analysis_timestamp': datetime.now().isoformat(),
+                    'ai_analysis_text': ai_analysis
+                }
+        except Exception as e:
+            print(f"Error con IA: {e}")
     alerts = []
     recommendations = []
     severity_score = 0
